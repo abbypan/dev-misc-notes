@@ -1,6 +1,163 @@
 proxy
 =======
 
+hysteria 的 chain proxy
+----------------------------
+
+install
+########
+
+https://github.com/apernet/hysteria
+
+server:
+
+.. code-block:: bash
+
+        bash <(curl -fsSL https://get.hy2.sh/)
+
+
+chain
+#######
+
+.. code-block:: text
+
+        应用
+        ↓ SOCKS5
+        本地 Hysteria 2 Client
+        ↓ HY2
+        Hysteria Server 1
+        ↓ SOCKS5
+        Server 1 上的 Hysteria 2 Client
+        ↓ HY2
+        Hysteria Server 2
+        ↓
+        Internet
+
+
+Local  -> Server 1
+#################################
+
+client-server1.yaml
+
+.. code-block:: yaml
+
+        server: server1.example.com:443
+
+        auth: server1-password
+
+        tls:
+          sni: server1.example.com
+          insecure: false
+
+        socks5:
+          listen: 127.0.0.1:1080
+          disableUDP: false
+
+        lazy: true
+
+
+启动
+
+.. code-block:: bash
+
+        hysteria client -c client-server1.yaml
+
+
+测试：
+
+.. code-block:: bash
+
+        curl --proxy socks5h://127.0.0.1:1080 https://ipinfo.json
+
+
+Server 1 client ->  Server 2
+################################
+
+
+/etc/hysteria/server2-client.yaml：
+
+.. code-block:: yaml
+
+        server: server2.example.com:443
+
+        auth: server2-password
+
+        tls:
+          sni: server2.example.com
+          insecure: false
+
+        socks5:
+          listen: 127.0.0.1:10808
+          disableUDP: false
+
+        lazy: false
+
+启动
+
+.. code-block:: bash
+
+        hysteria client -c /etc/hysteria/server2-client.yaml
+
+测试
+
+.. code-block:: bash
+
+        curl --proxy socks5h://127.0.0.1:10808 https://api.ipify.org
+
+
+Server 1 
+##############
+
+/etc/hysteria/server1.yaml
+
+.. code-block:: yaml
+
+        listen: :443
+
+        tls:
+          cert: /etc/hysteria/server.crt
+          key: /etc/hysteria/server.key
+
+        auth:
+          type: password
+          password: server1-password
+
+        outbounds:
+        - name: server2
+          type: socks5
+          socks5:
+          addr: 127.0.0.1:10808
+
+
+启动
+
+.. code-block:: bash
+
+        hysteria server -c /etc/hysteria/server1.yaml
+
+Server 2
+##################################
+
+
+/etc/hysteria/server2.yaml
+
+.. code-block:: yaml
+
+        listen: :443
+
+        tls:
+          cert: /etc/hysteria/server.crt
+          key: /etc/hysteria/server.key
+
+        auth:
+          type: password
+          password: server2-password
+
+        outbounds:
+        - name: direct
+          type: direct
+
+
 trojan
 ----------
 
@@ -150,8 +307,8 @@ client
         trojan -c config.json
 
 
-chain proxy
----------------
+xray chain proxy
+-------------------
 
 https://github.com/Hidden-Node/proxy-builder
 
