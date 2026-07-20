@@ -44,6 +44,8 @@
    windows/wsl
    windows/scoop
    windows/choco
+   windows/ntfs
+   windows/dism
 
 
 .. toctree::
