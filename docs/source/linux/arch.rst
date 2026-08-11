@@ -99,14 +99,18 @@ mkfs -t ext4 -b 4096 -E stride=128,stripe-width=128 /dev/sda1
    /dev/sda1           /   ext4        rw,relatime,stripe=128  0 1
    /dev/sda5       /boot           vfat        defaults 0 2
 
-连接无线网絡
+连接无线网络
 ------------
 
-``wifi-menu``
+安装镜像已预装并启用 ``iwd``，可以使用 ``iwctl`` 连接无线网络：
 
-``iwd``
+.. code-block:: console
 
-``iwctl --passphrase <passphrase> station <device> connect <SSID>``
+   # iwctl
+   [iwd]# device list
+   [iwd]# station <device> scan
+   [iwd]# station <device> get-networks
+   [iwd]# station <device> connect <SSID>
 
 安装系统
 --------
@@ -115,7 +119,7 @@ mkfs -t ext4 -b 4096 -E stride=128,stripe-width=128 /dev/sda1
 
     mount /dev/sda1 /mnt 
     mount /dev/sda5 /mnt/boot
-    pacstrap /mnt base base-devel dialog vim iwd 
+    pacstrap /mnt base base-devel dialog vim networkmanager
     pacstrap /mnt linux linux-headers linux-firmware 
     pacstrap /mnt glibc lib32-glibc 
     arch-chroot /mnt
@@ -126,14 +130,14 @@ mkfs -t ext4 -b 4096 -E stride=128,stripe-width=128 /dev/sda1
 
     ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime 
     mkinitcpio -p linux 
-    pacman -S netctl net-tools wpa_actiond wireless_tools wpa_supplicant ifplugd dialog dhclient dhcpcd
+    systemctl enable NetworkManager
     exit 
     reboot
 
 系统更新
 --------
 
-重启之后，执行 ``wifi-menu`` 连接到无线网络
+重启后使用 ``nmtui`` 或 ``nmcli`` 连接网络
 
 .. code-block::
 
@@ -452,89 +456,100 @@ locale-gen时找不到character map file
     ATTR{address}==“00:26:2d:f6:ad:43”, NAME=“eth0” SUBSYSTEM==“net”,
     ATTR{address}==“70:f1:a1:28:5a:ad”, NAME=“wlan0” 
 
-无线(netctl)
-------------
+NetworkManager
+--------------
 
-- 安装: ``pacman -S net-tools wireless_tools wpa_supplicant netctl``
+安装并启用
+~~~~~~~~~~
 
-- 配置: 参考/etc/netctl/examples/
+.. code-block:: console
 
-- 新建一个/etc/netctl/athome配置(wpa)
+   # pacman -S networkmanager
+   # systemctl enable --now NetworkManager.service
 
-``wpa_passphrase athome athomepasswd``\ 查看psk，假设psk为\ ``xxxxxxxxxxxxx``
+NetworkManager 自带命令行工具 ``nmcli`` 和文本界面 ``nmtui``。使用桌面环境时，
+GNOME 可以直接使用系统网络设置；KDE Plasma 可以安装 ``plasma-nm``；其他桌面环境
+可以安装 ``network-manager-applet``。
 
-.. code-block::
- CONNECTION=‘wireless’ DESCRIPTION=‘athome’
-INTERFACE=‘wlan0’ SECURITY=‘wpa’ ESSID=‘athome’ IP=‘dhcp’
-KEY="xxxxxxxxxxxxx 
+不要同时启用其他独立管理同一网络接口的服务。安装前已经配置过网络服务时，先检查：
 
-- 新建一个/etc/netctl/atwork配置(wep)
+.. code-block:: console
 
-.. code-block::
- CONNECTION=‘wireless’ DESCRIPTION=‘atwork’
-INTERFACE=‘wlan0’ SECURITY=‘wep’ ESSID=atwork IP=‘dhcp’
-KEY=“s:myatworkpasswd” 
+   $ systemctl list-unit-files --state=enabled | grep -E 'NetworkManager|dhcpcd|systemd-networkd|wpa_supplicant'
 
-- 开机启动
+常用命令
+~~~~~~~~
 
-.. code-block::
- netctl enable athome 
+.. code-block:: console
 
-- 移除开机启动
+   $ nmcli general status                 # 查看 NetworkManager 状态
+   $ nmcli device status                  # 查看网络设备及连接状态
+   $ nmcli connection show                # 查看所有连接配置
+   $ nmcli connection show --active       # 查看活动连接
+   $ nmcli connection up "<连接名称>"       # 启用已有连接
+   $ nmcli connection down "<连接名称>"     # 停用连接
+   $ nmcli connection delete "<连接名称>"   # 删除连接配置
 
-.. code-block::
- ls /etc/systemd/system/multi-user.target.wants/
-netctl enable athome 
+也可以运行 ``nmtui``，在文本界面中新增、编辑和启用连接。
 
-- 手工启动
+连接无线网络
+~~~~~~~~~~~~
 
-.. code-block::
- netctl start athome 
+.. code-block:: console
 
-无线(wpa_supplicant)
---------------------
+   $ nmcli radio wifi on
+   $ nmcli device wifi list
+   $ nmcli --ask device wifi connect "<SSID>"
 
-安装
+``--ask`` 会交互式询问密码，避免密码出现在 shell 历史记录中。连接隐藏的无线网络：
 
-.. code-block::
- pacman -S net-tools wireless_tools wpa_supplicant
+.. code-block:: console
 
+   $ nmcli --ask device wifi connect "<SSID>" hidden yes
 
-假设配置ESSID为mywireless，密码为mypasswd的无线
+成功连接后会保存连接配置，并默认在以后自动连接。可以手工控制自动连接：
 
-.. code-block::
- wpa_passphrase mywireless mypasswd >>
-/etc/wpa_supplicant/wpa_supplicant.conf 
+.. code-block:: console
 
-手动修改wpa_supplicant.conf
+   $ nmcli connection modify "<连接名称>" connection.autoconnect yes
 
-.. code-block::
- update_config=1
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=wheel ap_scan=1
-fast_reauth=1
+配置静态 IPv4 地址
+~~~~~~~~~~~~~~~~~~
 
-network={ ssid=“mywireless”
+先用 ``nmcli connection show`` 找到连接名称，然后执行：
 
-#proto=WPA proto=RSN key_mgmt=WPA-PSK pairwise=CCMP TKIP group=CCMP TKIP
+.. code-block:: console
 
-#psk=“mypasswd”
-psk=09896d6dc939e1d6b279c10ee3d4d1c8c75970ce345c6552b7ee47d892f0740e }
+   $ nmcli connection modify "<连接名称>" \
+       ipv4.method manual \
+       ipv4.addresses 192.168.1.10/24 \
+       ipv4.gateway 192.168.1.1 \
+       ipv4.dns "1.1.1.1 8.8.8.8"
+   $ nmcli connection up "<连接名称>"
 
+恢复使用 DHCP：
 
-手动连接：假设无线网卡为wlan0
+.. code-block:: console
 
-.. code-block::
- WLAN=wlan0 ESSID=mywireless PASSWD=mypasswd
+   $ nmcli connection modify "<连接名称>" \
+       ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns ""
+   $ nmcli connection up "<连接名称>"
 
-rm /run/dhcpcd-:math:`WLAN.pid
-rm /var/run/wpa_supplicant/`\ WLAN
+故障排查
+~~~~~~~~
 
-ifconfig $WLAN up
+.. code-block:: console
 
-wpa_supplicant -dd -B -Dwext -i $WLAN -c /etc/wpa_supplicant.conf
+   $ systemctl status NetworkManager.service
+   $ journalctl -b -u NetworkManager.service
+   $ nmcli device show
+   $ nmcli networking connectivity check
 
-ifconfig $WLAN up iwconfig $WLAN essid :math:`ESSID key "s:`\ PASSWD”
-dhcpcd $WLAN 
+修改 ``/etc/NetworkManager/system-connections/`` 中的连接文件后，需要重新加载配置：
+
+.. code-block:: console
+
+   # nmcli connection reload
 
 vpn
 ---
@@ -559,20 +574,6 @@ route add -net 211.86.0.0/16 gw $gateway eth0
 $vpn_gateway dev ppp0
 
 #看路由 sudo route -n 
-
-netctl提示wpa无线连接失败，要看 journal -xn等等
------------------------------------------------
-
-.. code-block::
- netctl start somewireless 
-
-netctl 提示wpa无线连接失败，要看journal -xn等等
-
-可以先禁用对应的网卡，再重新start，例如：
-
-.. code-block::
- ip link set wlan0 down netctl start somewireless {%
-endhighlight %}
 
 无线速度慢 wireless slow
 ------------------------
@@ -850,5 +851,3 @@ nvidia闪屏
     xfconf-query -c xfwm4 -p /general/vblank_mode
 
     xfconf-query -c xfwm4 -p /general/vblank_mode -s off
-
-
