@@ -1,9 +1,6 @@
 开发笔记
 ===================
 
-.. code-block::
-
-   https://github.com/abbypan/dev-notes
 
 目录
 ----
