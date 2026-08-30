@@ -7,7 +7,7 @@ Mirror
 
 ~/.bashrc
 
-.. note::
+.. code-block::
 
 	go env -w GO111MODULE=on
 

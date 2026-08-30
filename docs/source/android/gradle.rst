@@ -11,7 +11,7 @@ gradle
 gradle.properties
 -------------------
 
-.. note::
+.. code-block::
 
         systemProp.http.proxyHost=127.0.0.1
         systemProp.http.proxyPort=8080
@@ -24,14 +24,14 @@ gradle-wrapper.properties
 
 仅当前 project，在gradle/wrapper/gradle-wrapper.properties 文件中修改
 
-.. note::
+.. code-block::
 
         distributionUrl=https\://mirrors.cloud.tencent.com/gradle/gradle-8.13-bin.zip
 
 
 全局project，新建文件 ~/.gradle/init.d/gradle-mirror.gradle ，内容例如
 
-.. note::
+.. code-block::
 
         allprojects {
             gradle.beforeSettings { settings ->
@@ -54,7 +54,7 @@ gradle-wrapper.properties
 settings.gradle
 -----------------
 
-.. note::
+.. code-block::
 
         pluginManagement {
             repositories {
@@ -84,7 +84,7 @@ settings.gradle
 build.gradle
 --------------
 
-.. note::
+.. code-block::
 
         plugins {
             alias(libs.plugins.android.application) apply false
@@ -95,7 +95,7 @@ build.gradle
 app/build.gradle
 --------------------
 
-.. note::
+.. code-block::
 
         plugins {
             alias(libs.plugins.android.application)
@@ -143,7 +143,7 @@ app/build.gradle
 libs.versions.toml
 ------------------------
 
-.. note::
+.. code-block::
 
         [versions]
         agp = "8.13.0"

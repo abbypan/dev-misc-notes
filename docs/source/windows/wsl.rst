@@ -1,4 +1,4 @@
-安装WSL ubuntu虚拟机
+WSL
 -------------------------
 
 开启WSL
@@ -7,7 +7,7 @@
 powershell 管理员
 
 
-.. note::
+.. code-block::
 
     dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 
@@ -19,7 +19,7 @@ powershell 管理员
 查看版本 
 ###############
 
-.. note::
+.. code-block::
 
     wsl -l -o 
 
@@ -27,7 +27,7 @@ powershell 管理员
 ###############
 
 
-.. note::
+.. code-block::
 
     wsl --install Ubuntu-20.04  
 
@@ -38,7 +38,7 @@ powershell 管理员
 ###############
 
 
-.. note::
+.. code-block::
 
     wsl --shutdown
 
@@ -52,7 +52,7 @@ powershell 管理员
 ###############
 
 
-.. note::
+.. code-block::
 
     wsl --shutdown
 

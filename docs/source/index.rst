@@ -1,9 +1,6 @@
 开发笔记
 ===================
 
-.. note::
-
-   https://github.com/abbypan/dev-notes
 
 目录
 ----
@@ -44,6 +41,8 @@
    windows/wsl
    windows/scoop
    windows/choco
+   windows/ntfs
+   windows/dism
 
 
 .. toctree::
@@ -70,7 +69,9 @@
    software/vim.rst
    software/kindle
    software/gerrit
+   software/proxy
    software/codex
+   software/antigravity
 
 
 .. toctree::

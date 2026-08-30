@@ -2,4 +2,4 @@ Dev Notes
 ==========================
 
 
-https://ab-dev-notes.readthedocs.io/
+https://dev-misc-notes.readthedocs.io/

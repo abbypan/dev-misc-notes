@@ -244,6 +244,10 @@ blkid 查看 archlinux 根分区的PARTUUID。
    timeout 3
    console-mode max
 
+
+sudo bootctl set-default @saved
+
+
 boot目录示例
 ------------
 

@@ -14,7 +14,7 @@ cargo proxy
 
 ~/.cargo/config.toml
 
-.. note::
+.. code-block::
 
         [http]
 
