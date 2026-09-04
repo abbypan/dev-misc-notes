@@ -43,6 +43,7 @@
    windows/choco
    windows/ntfs
    windows/dism
+   windows/memory
 
 
 .. toctree::
