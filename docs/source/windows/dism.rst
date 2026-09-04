@@ -2,9 +2,15 @@ dism
 ========
 
 
-清理空间
+清理C盘空间
 ---------------
 
-Dism.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase
+设置 -> 系统 -> 恢复 -> 使用windows更新修复问题
+
+DISM /Online /Cleanup-Image /AnalyzeComponentStore
+
+DISM /Online /Cleanup-Image /StartComponentCleanup /ResetBase
+
+cleanmgr
 
 
