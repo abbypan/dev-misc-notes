@@ -1,6 +1,199 @@
 proxy
 =======
 
+TUN：ap0 经 sing-box 转发到本地 SOCKS5
+-----------------------------------------
+
+以下配置用于 Arch Linux 热点或路由器场景，只接管从 ``ap0`` 进入的流量：
+
+.. code-block:: text
+
+        ap0 客户端
+        ↓
+        ap0（Arch Linux 网关）
+        ↓
+        sing-box TUN（singbox0）
+        ↓
+        SOCKS5 127.0.0.1:8008
+        ↓
+        Internet
+
+前提条件
+########
+
+``ap0`` 已经创建并配置好地址、DHCP 等热点功能，客户端将 Arch Linux 主机作为
+默认网关；本地 SOCKS5 服务监听 ``127.0.0.1:8008``，并支持需要转发的协议。
+
+安装 sing-box 并确认接口及 SOCKS5 服务：
+
+.. code-block:: bash
+
+        sudo pacman -S sing-box
+        ip address show dev ap0
+        ss -lntup | grep ':8008'
+
+设置 ap0 Wi-Fi 热点
+###################
+
+使用 NetworkManager 创建热点。先确认无线网卡支持 AP 模式，并且接口名称为
+``ap0``；如果实际名称是 ``wlan0`` 等，需要同时替换下列命令和 sing-box 配置中的
+``include_interface``：
+
+.. code-block:: bash
+
+        sudo pacman -S networkmanager
+        sudo systemctl enable --now NetworkManager.service
+        iw list | sed -n '/Supported interface modes:/,/Band/p'
+        nmcli device status
+
+创建名为 ``ap0-hotspot``、SSID 为 ``ArchProxy`` 的 WPA2 热点。将示例密码替换为
+自己的密码；WPA2 密码长度必须为 8 到 63 个字符：
+
+.. code-block:: bash
+
+        sudo nmcli device wifi hotspot \
+          ifname ap0 \
+          con-name ap0-hotspot \
+          ssid ArchProxy \
+          password 'change-this-password'
+
+        sudo nmcli connection modify ap0-hotspot \
+          802-11-wireless-security.key-mgmt wpa-psk \
+          802-11-wireless-security.psk 'change-this-password' \
+          ipv4.method shared \
+          ipv4.addresses 192.168.50.1/24 \
+          connection.autoconnect yes
+
+        sudo nmcli connection down ap0-hotspot
+        sudo nmcli connection up ap0-hotspot
+
+``ipv4.method shared`` 让 NetworkManager 为热点客户端提供 DHCP 和 DNS；客户端通常
+会获得 ``192.168.50.0/24`` 网段的地址，并以 ``192.168.50.1`` 为默认网关。密码会
+出现在 shell 历史记录中，不要直接在共享终端中输入真实密码。
+
+查看热点状态和已连接设备：
+
+.. code-block:: bash
+
+        nmcli connection show --active
+        ip address show dev ap0
+        ip neigh show dev ap0
+
+修改 SSID 或密码后重新激活连接：
+
+.. code-block:: bash
+
+        sudo nmcli connection modify ap0-hotspot \
+          802-11-wireless.ssid NewSSID \
+          802-11-wireless-security.psk 'new-password'
+        sudo nmcli connection up ap0-hotspot
+
+临时关闭热点使用 ``sudo nmcli connection down ap0-hotspot``。如需禁止开机自动启动，
+执行 ``sudo nmcli connection modify ap0-hotspot connection.autoconnect no``。
+
+开启转发
+########
+
+创建 ``/etc/sysctl.d/30-ip-forward.conf``：
+
+.. code-block:: ini
+
+        net.ipv4.ip_forward = 1
+
+如果 ``ap0`` 同时提供 IPv6，再添加：
+
+.. code-block:: ini
+
+        net.ipv6.conf.all.forwarding = 1
+
+应用配置：
+
+.. code-block:: bash
+
+        sudo sysctl --system
+
+sing-box 配置
+#############
+
+创建 ``/etc/sing-box/config.json``：
+
+.. code-block:: json
+
+        {
+          "log": {
+            "level": "info"
+          },
+          "inbounds": [
+            {
+              "type": "tun",
+              "tag": "tun-in",
+              "interface_name": "singbox0",
+              "address": [
+                "172.19.0.1/30"
+              ],
+              "auto_route": true,
+              "auto_redirect": true,
+              "strict_route": true,
+              "include_interface": [
+                "ap0"
+              ],
+              "dns_mode": "disabled"
+            }
+          ],
+          "outbounds": [
+            {
+              "type": "socks",
+              "tag": "socks-out",
+              "server": "127.0.0.1",
+              "server_port": 8008,
+              "version": "5"
+            }
+          ],
+          "route": {
+            "auto_detect_interface": true,
+            "rules": [
+              {
+                "inbound": [
+                  "tun-in"
+                ],
+                "action": "route",
+                "outbound": "socks-out"
+              }
+            ]
+          }
+        }
+
+``include_interface`` 将自动路由限制为 ``ap0``，因此主机自身以及其他接口的流量
+不会被接管；``auto_detect_interface`` 用于避免 sing-box 的出站连接再次进入 TUN
+形成回环。Linux 下建议同时启用 ``auto_route`` 和 ``auto_redirect``。
+
+启动与验证
+############
+
+先检查配置，再启动服务：
+
+.. code-block:: bash
+
+        sudo sing-box check -c /etc/sing-box/config.json
+        sudo systemctl enable --now sing-box.service
+        sudo systemctl status sing-box.service
+
+检查自动生成的 TUN、策略路由和 nftables 规则：
+
+.. code-block:: bash
+
+        ip address show dev singbox0
+        ip rule show
+        ip route show table 2022
+        sudo nft list ruleset | grep -i sing-box
+        journalctl -u sing-box.service -b
+
+在连接到 ``ap0`` 的客户端上访问公网 IP 检查出口。若网页可访问但 DNS 失败，先确认
+``127.0.0.1:8008`` 的 SOCKS5 服务支持 UDP，并检查热点下发的 DNS 地址。主机启用了
+额外的 nftables、firewalld 或 ufw 规则时，还需要允许来自 ``ap0`` 的转发流量以及
+DHCP、DNS 流量。此方案由 sing-box 终止连接并转交 SOCKS5，不要再为
+``ap0`` 到 ``singbox0`` 添加 MASQUERADE 规则。
+
 hysteria 的 chain proxy
 ----------------------------
 
@@ -551,5 +744,3 @@ client
 
         cd /home/someclient/share/trojan
         trojan -c config.json
-
-

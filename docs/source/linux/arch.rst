@@ -378,7 +378,7 @@ index=1
 
     pacman -S ibus-rime 
 
-在\ ``$HOME/.bashrc``\ 中添加：
+X11 会话可在\ ``$HOME/.bashrc``\ 中添加：
 
 .. code-block::
 
@@ -390,11 +390,68 @@ index=1
     export QT_IM_MODULE=ibus
     export XIM=ibus 
 
-在\ ``$HOME/.xinitrc``\ 中添加：
+使用 ``startx`` 时在\ ``$HOME/.xinitrc``\ 中添加：
 
 .. code-block::
 
    ibus-daemon -drx
+
+KDE Plasma
+----------
+
+KDE Plasma Wayland 会话使用 KWin 原生 text-input 集成。创建
+``~/.config/environment.d/20-ibus.conf``：
+
+.. code-block:: ini
+
+   XMODIFIERS=@im=ibus
+   QT_IM_MODULES=wayland;ibus
+
+在 ``~/.xprofile`` 中根据会话类型配置并启动 IBus：
+
+.. code-block:: sh
+
+   export LANG=zh_CN.UTF-8
+   export LANGUAGE=zh_CN:en_US
+   export XMODIFIERS="@im=ibus"
+
+   if [ "${XDG_SESSION_TYPE:-}" = wayland ] && [ "${XDG_CURRENT_DESKTOP:-}" = KDE ]; then
+       # 使用 KWin 原生 text-input 集成，Wayland Electron 应用也需要此设置。
+       unset GTK_IM_MODULE QT_IM_MODULE IBUS_DAEMON_ARGS
+       export QT_IM_MODULES="wayland;ibus"
+       systemctl --user unset-environment GTK_IM_MODULE QT_IM_MODULE IBUS_DAEMON_ARGS
+       systemctl --user import-environment XMODIFIERS QT_IM_MODULES
+       ibus start --type=kde-wayland >/dev/null 2>&1
+   else
+       export GTK_IM_MODULE=ibus
+       export QT_IM_MODULE=ibus
+       export IBUS_DAEMON_ARGS="--xim"
+       systemctl --user import-environment GTK_IM_MODULE QT_IM_MODULE XMODIFIERS IBUS_DAEMON_ARGS
+       ibus start --type=systemd \
+           --service-file=org.freedesktop.IBus.session.generic.service >/dev/null 2>&1
+   fi
+
+Wayland 会话不要设置 ``GTK_IM_MODULE``、``QT_IM_MODULE`` 和
+``IBUS_DAEMON_ARGS``，否则可能绕过 KWin 的原生输入法协议。
+
+如果使用 ``startx`` 启动 X11 会话，则在 ``~/.xinitrc`` 中设置传统输入法环境变量；
+以下内容应放在桌面环境的 ``exec`` 命令之前：
+
+.. code-block:: sh
+
+   export LANG=zh_CN.UTF-8
+   export LANGUAGE=zh_CN:en_US
+   export GTK_IM_MODULE=ibus
+   export QT_IM_MODULE=ibus
+   export XMODIFIERS="@im=ibus"
+   export IBUS_DAEMON_ARGS="--xim"
+
+   systemctl --user import-environment \
+       DISPLAY XAUTHORITY GTK_IM_MODULE QT_IM_MODULE XMODIFIERS IBUS_DAEMON_ARGS
+   ibus start --type=systemd \
+       --service-file=org.freedesktop.IBus.session.generic.service >/dev/null 2>&1
+
+配置完成后注销并重新登录，再运行 ``ibus-setup`` 添加 Rime 输入法。
 
 郑码
 ----
